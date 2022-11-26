@@ -9,14 +9,17 @@ if(WITH_TESTS)
     enable_testing()
 endif()
 
+add_subdirectory(dependecies/micro-logger)
+
 include_directories(include)
 aux_source_directory(src SRC)
 
 add_library(${PROJECT_NAME} SHARED ${SRC})
+target_link_libraries(${PROJECT_NAME} LINK_PUBLIC micro_logger++)
 
 if(WITH_TESTS)
         add_executable(main tests/main.cpp)
-        set_target_properties(main PROPERTIES LINK_FLAGS "" LINK_PUBLIC ${PROJECT_NAME})
+        set_target_properties(main PROPERTIES LINK_FLAGS "-li2c" LINK_PUBLIC ${PROJECT_NAME})
         target_link_libraries(main LINK_PUBLIC ${PROJECT_NAME})
         include(cmake/custom_tests)
         #        custom_tests(todo)
