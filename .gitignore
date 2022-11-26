@@ -1,1 +1,9 @@
 .ninja*
+.idea
+CMake*
+build.ninja
+CTest*.cmake
+cmake_install.cmake
+*.so
+main
+dependecies
