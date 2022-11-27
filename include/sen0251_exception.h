@@ -28,5 +28,6 @@ class name : public MyExceptionBase { \
 };
 
 THROW_CLASS(InvalidInputError);
+THROW_CLASS(OperationError);
 
 #endif // DFROBOT_SEN0251_SEN0251_EXCEPTION_H

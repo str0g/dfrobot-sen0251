@@ -2,9 +2,32 @@
 #include <iostream>
 #include <string>
 #include <unordered_map>
+#include <memory>
+#include <chrono>
+#include <thread>
+
+#include "../dependecies/micro-logger/includes/micro_logger.hpp"
 
 #include "sen0251.h"
 #include "utils.h"
+
+const char* ENV_DEVICE_INDEX = "ENV_DEVICE_INDEX";
+
+std::shared_ptr<micro_logger::BaseWriter> writer;
+
+void set_stdo_writer() {
+  writer = std::make_shared<micro_logger::StandardOutWriter>();
+  micro_logger::set_writer(*writer);
+};
+
+int get_device_index() {
+  try {
+    return std::stoi(std::getenv(ENV_DEVICE_INDEX));
+  } catch (const std::logic_error& e) {
+    std::cout << "please set ENV_DEVICE_INDEX" << std::endl;
+    throw;
+  }
+}
 
 struct Options {
   const char *description;
@@ -40,9 +63,66 @@ void list_devices() {
   std::cout << "]" << std::endl;
 }
 
+void pressure() {
+  Sen0251 dev(get_device_index());
+  dev.power_control();
+  for(int i=3; i; --i) {
+    std::cout << "pressure: " << dev.get_pressure() << std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+  }
+}
+
+void temperature() {
+  Sen0251 dev(get_device_index());
+  dev.power_control();
+  for(int i=3; i; --i) {
+    std::cout << "temperature: " << dev.get_temperature() << std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+  }
+}
+
+void on() {
+  Sen0251 dev(get_device_index());
+  dev.power_control();
+}
+
+void off() {
+  Sen0251 dev(get_device_index());
+  dev.power_control(PowerControl::off);
+}
+
+void low_power() {
+  Sen0251 dev(get_device_index());
+  dev.power_control(PowerControl::pressure_on | PowerControl::temperature_on | PowerControl::force_on_a);
+}
+
+void status() {
+  Sen0251 dev(get_device_index());
+  dev.power_control();
+  dev.set_oversampling(Oversampling::no, Oversampling::x4);
+  std::cout << dev << std::endl;
+}
+
+void misc() {
+  Sen0251 dev(get_device_index());
+  dev.get_status();
+  dev.get_error();
+}
+
 int main(int argc, char **argv) {
   actions["help"] = {"print help", help};
   actions["list"] = {"list device indexes", list_devices};
+  actions["pressure"] = {"get pressure", pressure};
+  actions["temperature"] = {"get temperature", temperature};
+  actions["on"] = {"get osr", on};
+  actions["off"] = {"get osr", off};
+  actions["low_power"] = {"low_power", low_power};
+  actions["status"] = {"status", status};
+  actions["misc"] = {"misc", misc};
+
+  set_stdo_writer();
+
+  Sen0251 dev(get_device_index());
 
   for (int i = 1; i < argc; ++i) {
     try {

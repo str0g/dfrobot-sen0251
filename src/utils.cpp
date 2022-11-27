@@ -26,3 +26,7 @@ std::vector<unsigned> list_i2c_devices() {
 
   return rc;
 }
+
+int to_24bit_int(uint8_t b2, uint8_t b1, uint8_t b0) {
+  return (b2 << 16) + (b1 << 8) + b0;
+}
