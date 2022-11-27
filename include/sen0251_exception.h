@@ -29,5 +29,6 @@ class name : public MyExceptionBase { \
 
 THROW_CLASS(InvalidInputError);
 THROW_CLASS(OperationError);
+THROW_CLASS(OutOfRange);
 
 #endif // DFROBOT_SEN0251_SEN0251_EXCEPTION_H

@@ -13,6 +13,6 @@
  */
 std::vector<unsigned> list_i2c_devices();
 
-int to_24bit_int(uint8_t b2, uint8_t b1, uint8_t b0);
+float to_24bit(uint8_t b2, uint8_t b1, uint8_t b0);
 
 #endif // DFROBOT_SEN0251_UTILS_H

@@ -63,20 +63,11 @@ void list_devices() {
   std::cout << "]" << std::endl;
 }
 
-void pressure() {
+void sensors() {
   Sen0251 dev(get_device_index());
   dev.power_control();
   for(int i=3; i; --i) {
-    std::cout << "pressure: " << dev.get_pressure() << std::endl;
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
-  }
-}
-
-void temperature() {
-  Sen0251 dev(get_device_index());
-  dev.power_control();
-  for(int i=3; i; --i) {
-    std::cout << "temperature: " << dev.get_temperature() << std::endl;
+    std::cout << dev.get_readings() << std::endl;
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
   }
 }
@@ -99,7 +90,7 @@ void low_power() {
 void status() {
   Sen0251 dev(get_device_index());
   dev.power_control();
-  dev.set_oversampling(Oversampling::no, Oversampling::x4);
+  dev.set_oversampling(Oversampling::x8, Oversampling::x4);
   std::cout << dev << std::endl;
 }
 
@@ -112,8 +103,7 @@ void misc() {
 int main(int argc, char **argv) {
   actions["help"] = {"print help", help};
   actions["list"] = {"list device indexes", list_devices};
-  actions["pressure"] = {"get pressure", pressure};
-  actions["temperature"] = {"get temperature", temperature};
+  actions["sensors"] = {"get readings", sensors};
   actions["on"] = {"get osr", on};
   actions["off"] = {"get osr", off};
   actions["low_power"] = {"low_power", low_power};

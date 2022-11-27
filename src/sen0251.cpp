@@ -1,6 +1,7 @@
 #include <cstring>
 #include <cerrno>
-#include <iostream>
+#include <limits>
+#include <cmath>
 
 extern "C" {
 #include <unistd.h>
@@ -62,10 +63,13 @@ std::string PowerControl::to_string(int flag) {
   std::string rc;
   rc += "\n\tpressure:    " + std::to_string(bool(flag & PowerControl::pressure_on));
   rc += "\n\ttemperature: " + std::to_string(bool(flag & PowerControl::temperature_on));
-  if (flag & PowerControl::normal)
+  if (flag & PowerControl::normal) {
+    rc += "\n\tforce:       0";
     rc += "\n\tnormal:      " + std::to_string(bool(flag & PowerControl::normal));
-  else
+  } else {
     rc += "\n\tforce:       " + std::to_string((flag & PowerControl::force_on_a) && (flag & PowerControl::force_on_b));
+    rc += "\n\tnormal:      0";
+  }
 
   return rc;
 }
@@ -91,7 +95,8 @@ Sen0251::Sen0251(unsigned dev, unsigned address) {
     THROW(OperationError, "bit has not been set, is device correct?");
   }
 
-  filter_coefficient = get_filter_coefficient();
+  set_filter_coefficient();
+  set_calibration_data();
 
   MSG_EXIT();
 }
@@ -99,17 +104,17 @@ Sen0251::Sen0251(unsigned dev, unsigned address) {
 Sen0251::~Sen0251() { close(file); }
 
 unsigned char Sen0251::get_chip_id() const {
-  auto rc = i2c_smbus_read_word_data(file, Register::id);
+  auto rc = i2c_smbus_read_byte_data(file, Register::id);
   if (rc < 0) {
     MSG_WARN("fail to read: %d, %s", rc, get_error());
   }
-  return (rc >> 2);
+  return rc;
 }
 
 const char* Sen0251::get_error() const {
   MSG_ENTER();
 
-  auto rc = i2c_smbus_read_word_data(file, Register::err);
+  auto rc = i2c_smbus_read_byte_data(file, Register::err);
   if (rc < 0) {
     MSG_WARN("fail to read: %d, %s", rc, get_error());
   }
@@ -126,7 +131,7 @@ const char* Sen0251::get_error() const {
 const char* Sen0251::get_status() const {
   MSG_ENTER();
 
-  auto rc = i2c_smbus_read_word_data(file, Register::status);
+  auto rc = i2c_smbus_read_byte_data(file, Register::status);
   if (rc < 0) {
     MSG_WARN("fail to read: %d, %s", rc, get_error());
   }
@@ -136,35 +141,99 @@ const char* Sen0251::get_status() const {
   auto ret = Status::to_string(rc);
 
   MSG_EXIT();
+
   return ret;
 }
 
-int Sen0251::get_temperature() {
-  auto p1 = i2c_smbus_read_word_data(file, Register::temperature);//7-0
-  std::cout << p1 << std::endl;
-  auto p2 = i2c_smbus_read_word_data(file, Register::temperature+1);//15-8
-  std::cout << p2 << std::endl;
-  auto p3 = i2c_smbus_read_word_data(file, Register::temperature+2);//24-15
-  std::cout << p3 << std::endl;
-  return p3+p2+p1;
+void Sen0251::get_temperature(Readings& obj) const {
+  MSG_ENTER();
+
+  auto p1 = i2c_smbus_read_byte_data(file, Register::temperature);//7-0
+  auto p2 = i2c_smbus_read_byte_data(file, Register::temperature+1);//15-8
+  auto p3 = i2c_smbus_read_byte_data(file, Register::temperature+2);//24-15
+  auto reading = to_24bit(p3, p2, p1);
+  MSG_DEBUG("t1: %d t2: %d t3: %d, tmp: %f", p1, p2, p3, reading);
+
+  auto temp_part1 = reading - temperature_calibration[0];
+  auto temp_part2 = temp_part1 * temperature_calibration[1];
+
+  obj.temperature = temp_part2 + (temp_part1 * temp_part1) * temperature_calibration[2];
+  MSG_DEBUG("tp1: %f tp2: %f temp: %f", temp_part1, temp_part2, obj.temperature);
+
+  MSG_EXIT();
 }
 
-int Sen0251::get_pressure() {
-  auto p1 = i2c_smbus_read_word_data(file, Register::pressure);//7-0
-  std::cout << p1 << std::endl;
-  auto p2 = i2c_smbus_read_word_data(file, Register::pressure+1);//15-8
-  std::cout << p2 << std::endl;
-  auto p3 = i2c_smbus_read_word_data(file, Register::pressure+2);//24-15
-  std::cout << p3 << std::endl;
-  return p3+p2+p1;
+void Sen0251::get_pressure(Readings& obj) const {
+  MSG_ENTER();
+
+  auto p1 = i2c_smbus_read_byte_data(file, Register::pressure);//7-0
+  auto p2 = i2c_smbus_read_byte_data(file, Register::pressure+1);//15-8
+  auto p3 = i2c_smbus_read_byte_data(file, Register::pressure+2);//24-15
+
+  auto reading = to_24bit(p1, p2, p3);
+  MSG_DEBUG("p1: %d p2: %d p3: %d, reading: %f", p1, p2, p3, reading);
+
+  auto temperature_compensation = obj.temperature;
+
+  float partial_out_1;
+  {
+    auto part1 = pressure_calibration[5] * temperature_compensation;
+    auto part2 = pressure_calibration[6] * (temperature_compensation * temperature_compensation);
+    auto part3 = pressure_calibration[7] * (temperature_compensation * temperature_compensation * temperature_compensation);
+    partial_out_1 = pressure_calibration[4] + part1 + part2 + part3;
+  }
+
+  float partial_out_2;
+  {
+    auto part1 = pressure_calibration[1] * temperature_compensation;
+    auto part2 = pressure_calibration[2] * (temperature_compensation * temperature_compensation);
+    auto part3 = pressure_calibration[3] * (temperature_compensation * temperature_compensation * temperature_compensation);
+    partial_out_2 = (pressure_calibration[0] + part1 + part2 + part3) * reading;
+  }
+
+  float partial_out_3;
+  {
+    auto part1 = reading * reading;
+    auto part2 = pressure_calibration[8] + pressure_calibration[9] * temperature_compensation;
+    auto part3 = part1 * part2;
+    partial_out_3 = part3 + (part1 * reading) * pressure_calibration[10];
+  }
+
+  obj.pressure = partial_out_1 + partial_out_2 + partial_out_3;
+
+  MSG_DEBUG("pp1: %d pp2: %d pp3: %d, press: %f", p1, p2, p3, obj.pressure);
+
+  MSG_EXIT();
 }
 
-int Sen0251::get_osr() const {
-  auto rc = i2c_smbus_read_word_data(file, Register::oversampling);
+void Sen0251::get_altitude(Readings& obj) const {
+  constexpr double sea_level_pressure = 1013.23f;
+  obj.altitude = ((float)powf(sea_level_pressure / obj.pressure, 0.190223f) - 1.0f) * (obj.temperature + 273.15f) / 0.0065f;
+}
+
+Sen0251::Readings Sen0251::get_readings() const {
+  MSG_ENTER();
+
+  Readings obj;
+
+  get_temperature(obj);
+  get_pressure(obj);
+  get_altitude(obj);
+
+  MSG_EXIT();
+
+  return obj;
+}
+
+void Sen0251::get_oversampling(unsigned char& temperature, unsigned char& pressure) const {
+  auto rc = i2c_smbus_read_byte_data(file, Register::oversampling);
   if (rc < 0) {
     MSG_WARN("fail to read: %d, %s", rc, get_error());
   }
-  return rc;
+
+  MSG_DEBUG("%d", rc);
+  temperature = rc >> 3;
+  pressure =  rc ^ (temperature << 3);
 }
 
 void Sen0251::power_control(unsigned char flag) {
@@ -203,11 +272,11 @@ void Sen0251::command(Commands::cmd_t cmd) {
 int Sen0251::get_fifo_size() const {
   MSG_ENTER();
 
-  auto rc = i2c_smbus_read_word_data(file, Register::fifo_ready);
+  auto rc = i2c_smbus_read_byte_data(file, Register::fifo_ready);
   if (rc < 0) {
     MSG_WARN("fail to read: %d, %s", rc, get_error());
   } else if (rc > 0) {
-    rc = i2c_smbus_read_word_data(file, Register::fifo_size);
+    rc = i2c_smbus_read_byte_data(file, Register::fifo_size);
     if (rc < 0) {
       MSG_WARN("fail to read: %d, %s", rc, get_error());
     }
@@ -221,7 +290,7 @@ int Sen0251::get_fifo_size() const {
 bool Sen0251::event() const {
   MSG_ENTER();
 
-  auto rc = i2c_smbus_read_word_data(file, Register::event);
+  auto rc = i2c_smbus_read_byte_data(file, Register::event);
   if (rc < 0) {
     MSG_WARN("fail to read: %d, %s", rc, get_error());
   }
@@ -231,10 +300,10 @@ bool Sen0251::event() const {
   return rc;
 }
 
-unsigned char Sen0251::get_filter_coefficient() const {
+void Sen0251::set_filter_coefficient() {
   MSG_ENTER();
 
-  auto rc = i2c_smbus_read_word_data(file, Register::config);
+  auto rc = i2c_smbus_read_byte_data(file, Register::config);
   if (rc < 0) {
     MSG_WARN("fail to read: %d, %s", rc, get_error());
   }
@@ -266,15 +335,121 @@ unsigned char Sen0251::get_filter_coefficient() const {
     break;
   }
 
-  MSG_EXIT();
+  filter_coefficient = rc;
 
-  return rc;
+  MSG_EXIT();
+}
+
+void Sen0251::set_calibration_data() {
+  MSG_ENTER();
+
+  set_temperature_calibration();
+  set_pressure_calibration();
+
+  MSG_EXIT();
+}
+
+void Sen0251::_set_data_to_calibration(float& out, double coefficient, unsigned char address1, unsigned char address2, bool sign, double limiter) {
+  auto nvm = i2c_smbus_read_byte_data(file, address1);
+  if (nvm < 0) {
+    MSG_WARN("fail to read: %d, %s 0x%x", nvm, get_error(), address1);
+  }
+  if (address2) {
+    auto nvm2 = i2c_smbus_read_byte_data(file, address2);
+    if (nvm2 < 0) {
+      MSG_WARN("fail to read: %d, %s 0x%x", nvm2, get_error(), address2);
+    }
+    nvm = (sign ? static_cast<int16_t>((nvm << 8) | nvm2) : static_cast<uint16_t>((nvm << 8) | nvm2));
+  }
+  out = (static_cast<float>(nvm) -limiter) / coefficient;
+}
+
+void Sen0251::set_temperature_calibration() {
+  MSG_ENTER();
+  {
+    constexpr double res = 1L<<48;
+    _set_data_to_calibration(temperature_calibration[2], res, 0x35);
+  }
+  {
+    constexpr double res = 1<<30;
+    _set_data_to_calibration(temperature_calibration[1], res, 0x33, 0x34, false);
+  }
+  {
+    constexpr auto res{0.00390625}; // 2^-8
+    _set_data_to_calibration(temperature_calibration[0], res, 0x31, 0x32, false);
+  }
+
+  MSG_EXIT();
+}
+
+void Sen0251::set_pressure_calibration() {
+  MSG_ENTER();
+  {
+    constexpr double res = std::numeric_limits<double>::max();//1L<<65;//@TODO fix me
+    _set_data_to_calibration(pressure_calibration[10], res, 0x45);
+  }
+
+  {
+    constexpr double res = 1L<<48;
+    _set_data_to_calibration(pressure_calibration[9], res, 0x44);
+  }
+
+  {
+    constexpr double res = 1L<<48;
+    _set_data_to_calibration(pressure_calibration[8], res, 0x42, 0x43);
+  }
+
+  {
+    constexpr double res = 1L<<15;
+    _set_data_to_calibration(pressure_calibration[7], res, 0x41);
+  }
+
+  {
+    constexpr double res = 1L<<8;
+    _set_data_to_calibration(pressure_calibration[6], res, 0x40);
+  }
+
+  {
+    constexpr double res = 1<<6;
+    _set_data_to_calibration(pressure_calibration[5], res, 0x3E, 0x3F, false);
+  }
+
+  {
+    constexpr double res = 0.125; //2^-3
+    _set_data_to_calibration(pressure_calibration[4], res, 0x3C, 0x3D, false);
+  }
+
+  {
+    constexpr double res = 1L<<37;
+    _set_data_to_calibration(pressure_calibration[3], res, 0x3B);
+  }
+
+  {
+    constexpr double res = 1L<<32;
+    _set_data_to_calibration(pressure_calibration[2], res, 0x3A);
+  }
+
+  {
+    constexpr double res = 1<<29;
+    constexpr double limiter = 1<<14;
+    _set_data_to_calibration(pressure_calibration[1], res, 0x38, 0x39, true, limiter);
+  }
+
+  {
+    constexpr double res = 1<<20;
+    constexpr double limiter = 1<<14;
+    _set_data_to_calibration(pressure_calibration[0], res, 0x36, 0x37, true, limiter);
+  }
+
+  MSG_EXIT();
 }
 
 void Sen0251::set_oversampling(Oversampling::oversampling_t pressure, Oversampling::oversampling_t temperature) {
   MSG_ENTER();
 
-  auto rc = i2c_smbus_write_byte_data(file, Register::oversampling, (temperature << 3) | pressure);
+  auto sampling = (temperature << 3) | pressure;
+  MSG_DEBUG("%d", sampling);
+  auto rc = i2c_smbus_write_byte_data(file, Register::oversampling, sampling);
   if (rc < 0) {
     MSG_WARN("fail to read: %d, %s", rc, get_error());
   }
@@ -285,7 +460,7 @@ void Sen0251::set_oversampling(Oversampling::oversampling_t pressure, Oversampli
 unsigned char Sen0251::get_power() const {
   MSG_ENTER();
 
-  auto rc = i2c_smbus_read_word_data(file, Register::pwr_ctrl);
+  auto rc = i2c_smbus_read_byte_data(file, Register::pwr_ctrl);
   if (rc < 0) {
     MSG_WARN("fail to read: %d, %s", rc, get_error());
   }
