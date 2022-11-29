@@ -109,6 +109,8 @@ public:
    */
   void set_oversampling(Oversampling::oversampling_t pressure, Oversampling::oversampling_t temperature);
 
+  void soft_reset();
+
   Sen0251(const Sen0251 &) = delete;
   Sen0251(Sen0251 &&) = delete;
   Sen0251 &operator=(const Sen0251 &) = delete;

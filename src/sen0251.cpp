@@ -2,6 +2,8 @@
 #include <cerrno>
 #include <limits>
 #include <cmath>
+#include <vector>
+#include <thread>
 
 extern "C" {
 #include <unistd.h>
@@ -16,6 +18,8 @@ extern "C" {
 #include "sen0251_exception.h"
 
 #include "../dependecies/micro-logger/includes/micro_logger.hpp"
+
+std::vector<unsigned char> Supported_devices {0x50};
 
 namespace Register {
 enum {
@@ -89,11 +93,19 @@ Sen0251::Sen0251(unsigned dev, unsigned address) {
     MSG_CRITICAL("%s %s", strerror_l(errno, NULL), filename);
     throw std::runtime_error(strerror_l(errno, NULL));
   }
-  //reset device
-  command(Commands::softreset);
-  if(not event()) {
-    THROW(OperationError, "bit has not been set, is device correct?");
+  auto id = get_chip_id();
+  bool found = false;
+  for(auto device : Supported_devices) {
+    if (id == device) {
+      found = true;
+      break;
+    }
   }
+  if (not found) {
+    THROW(DeviceNotSupported, "if device is BMP388, add it to support list");
+  }
+
+  soft_reset();
 
   set_filter_coefficient();
   set_calibration_data();
@@ -152,7 +164,7 @@ void Sen0251::get_temperature(Readings& obj) const {
   auto p2 = i2c_smbus_read_byte_data(file, Register::temperature+1);//15-8
   auto p3 = i2c_smbus_read_byte_data(file, Register::temperature+2);//24-15
   auto reading = to_24bit(p3, p2, p1);
-  MSG_DEBUG("t1: %d t2: %d t3: %d, tmp: %f", p1, p2, p3, reading);
+  MSG_DEBUG("t1: %d t2: %d t3: %d, reading: %f", p1, p2, p3, reading);
 
   auto temp_part1 = reading - temperature_calibration[0];
   auto temp_part2 = temp_part1 * temperature_calibration[1];
@@ -361,7 +373,7 @@ void Sen0251::_set_data_to_calibration(float& out, double coefficient, unsigned 
     }
     nvm = (sign ? static_cast<int16_t>((nvm << 8) | nvm2) : static_cast<uint16_t>((nvm << 8) | nvm2));
   }
-  out = (static_cast<float>(nvm) -limiter) / coefficient;
+  out = (static_cast<double >(nvm) -limiter) / coefficient;
 }
 
 void Sen0251::set_temperature_calibration() {
@@ -468,4 +480,17 @@ unsigned char Sen0251::get_power() const {
   MSG_EXIT();
 
   return rc;
+}
+
+void Sen0251::soft_reset() {
+  MSG_ENTER();
+
+  command(Commands::softreset);
+  //documentation not less than 10ms
+  std::this_thread::sleep_for(std::chrono::milliseconds(15));
+  if(not event()) {
+    THROW(OperationError, "bit has not been set, is device correct?");
+  }
+
+  MSG_EXIT();
 }
