@@ -143,7 +143,7 @@ private:
   void set_calibration_data();
   void set_temperature_calibration();
   void set_pressure_calibration();
-  void _set_data_to_calibration(float&, double, unsigned char, unsigned char =0, bool=true, double =0);
+  void _set_data_to_calibration(float&, double, unsigned char, unsigned char =0, bool=false, double =0);
   void get_temperature(Readings&) const;
   void get_pressure(Readings&) const;
   void get_altitude(Readings&) const;

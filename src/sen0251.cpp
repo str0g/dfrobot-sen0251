@@ -341,9 +341,9 @@ void Sen0251::_set_data_to_calibration(float& out, double coefficient, unsigned 
     if (nvm2 < 0) {
       MSG_WARN("fail to read: %d, %s 0x%x", nvm2, get_error(), address2);
     }
-    nvm = (sign ? static_cast<int16_t>((nvm << 8) | nvm2) : static_cast<uint16_t>((nvm << 8) | nvm2));
+    nvm = (sign ? static_cast<int16_t>((nvm2 << 8) | nvm) : static_cast<uint16_t>((nvm2 << 8) | nvm));
   }
-  out = (static_cast<double >(nvm) -limiter) / coefficient;
+  out = ((static_cast<double >(nvm) - limiter) / coefficient);
 }
 
 void Sen0251::set_temperature_calibration() {
@@ -354,11 +354,11 @@ void Sen0251::set_temperature_calibration() {
   }
   {
     constexpr double res = 1<<30;
-    _set_data_to_calibration(temperature_calibration[1], res, 0x33, 0x34, false);
+    _set_data_to_calibration(temperature_calibration[1], res, 0x33, 0x34);
   }
   {
     constexpr auto res{0.00390625}; // 2^-8
-    _set_data_to_calibration(temperature_calibration[0], res, 0x31, 0x32, false);
+    _set_data_to_calibration(temperature_calibration[0], res, 0x31, 0x32);
   }
 
   MSG_EXIT();
@@ -367,7 +367,7 @@ void Sen0251::set_temperature_calibration() {
 void Sen0251::set_pressure_calibration() {
   MSG_ENTER();
   {
-    constexpr double res = std::numeric_limits<double>::max();//1L<<65;//@TODO fix me
+    double res = powf(2, 65);
     _set_data_to_calibration(pressure_calibration[10], res, 0x45);
   }
 
@@ -393,12 +393,12 @@ void Sen0251::set_pressure_calibration() {
 
   {
     constexpr double res = 1<<6;
-    _set_data_to_calibration(pressure_calibration[5], res, 0x3E, 0x3F, false);
+    _set_data_to_calibration(pressure_calibration[5], res, 0x3E, 0x3F);
   }
 
   {
     constexpr double res = 0.125; //2^-3
-    _set_data_to_calibration(pressure_calibration[4], res, 0x3C, 0x3D, false);
+    _set_data_to_calibration(pressure_calibration[4], res, 0x3C, 0x3D);
   }
 
   {
