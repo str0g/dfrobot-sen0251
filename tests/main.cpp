@@ -31,12 +31,12 @@ int get_device_index() {
 
 struct Options {
   const char *description;
-  void (*fun)();
+  void (*fun)(Sen0251&);
 };
 
 std::unordered_map<std::string, Options> actions;
 
-void help() {
+void _help() {
   std::cout << "Options: " << std::endl;
   char buf[25];
   std::memset(buf, ' ', sizeof(buf));
@@ -51,7 +51,11 @@ void help() {
   std::cout << std::endl;
 }
 
-void list_devices() {
+void help(Sen0251& not_used) {
+  _help();
+}
+
+void list_devices(Sen0251& not_used) {
   auto rc = list_i2c_devices();
   std::cout << "possible devices: [ ";
   if (rc.empty()) {
@@ -63,46 +67,42 @@ void list_devices() {
   std::cout << "]" << std::endl;
 }
 
-void sensors() {
-  Sen0251 dev(get_device_index());
-  dev.power_control();
+void sensors(Sen0251& dev) {
   for(int i=3; i; --i) {
     std::cout << dev.get_readings() << std::endl;
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
   }
 }
 
-void on() {
-  Sen0251 dev(get_device_index());
+void on(Sen0251& dev) {
   dev.power_control();
 }
 
-void off() {
-  Sen0251 dev(get_device_index());
-  dev.power_control();
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+void off(Sen0251& dev) {
   dev.power_control(PowerControl::off);
 }
 
-void low_power() {
-  Sen0251 dev(get_device_index());
+void low_power(Sen0251& dev) {
   dev.power_control(PowerControl::pressure_on | PowerControl::temperature_on | PowerControl::force_on_a);
 }
 
-void status() {
-  Sen0251 dev(get_device_index());
+void status(Sen0251& dev) {
   dev.power_control();
   dev.set_oversampling(Oversampling::x8, Oversampling::x4);
   std::cout << dev << std::endl;
 }
 
-void misc() {
-  Sen0251 dev(get_device_index());
+void misc(Sen0251& dev) {
   dev.get_status();
   dev.get_error();
 }
 
 int main(int argc, char **argv) {
+  if (argv[1] == std::string("help")) {
+    _help();
+    return 0;
+  }
+
   actions["help"] = {"print help", help};
   actions["list"] = {"list device indexes", list_devices};
   actions["sensors"] = {"get readings", sensors};
@@ -119,10 +119,10 @@ int main(int argc, char **argv) {
   for (int i = 1; i < argc; ++i) {
     try {
       auto &option = actions.at(argv[i]);
-      option.fun();
+      option.fun(dev);
     } catch (const std::out_of_range &e) {
       std::cout << "unknown " << argv[i] << std::endl;
-      help();
+      _help();
       return 0;
     }
   }
