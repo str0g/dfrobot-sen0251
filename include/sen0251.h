@@ -36,6 +36,19 @@ enum oversampling_t {
 };
 }
 
+namespace IirFilter {
+enum iir_filter_t {
+  coef_0 = 0x0,
+  coef_1 = 0x1,
+  coef_3 = 0x2,
+  coef_7 = 0x3,
+  coef_15 = 0x4,
+  coef_31 = 0x5,
+  coef_63 = 0x6,
+  coef_127 = 0x7,
+};
+}
+
 class Sen0251 {
 public:
   /**
@@ -111,6 +124,9 @@ public:
 
   void soft_reset();
 
+  void set_iir_filter(IirFilter::iir_filter_t);
+  unsigned char get_iir_filter() const;
+
   Sen0251(const Sen0251 &) = delete;
   Sen0251(Sen0251 &&) = delete;
   Sen0251 &operator=(const Sen0251 &) = delete;
@@ -118,14 +134,12 @@ public:
 
 private:
   int file;
-  unsigned char filter_coefficient;
   float temperature_calibration[3];
   float pressure_calibration[11];
 
   /**
    * @return device coefficient filter
    */
-  void set_filter_coefficient();
   void set_calibration_data();
   void set_temperature_calibration();
   void set_pressure_calibration();
@@ -139,7 +153,7 @@ private:
        << "\nosr:  " << PowerControl::to_string(obj.get_power())
        << "\nfifo: " << obj.get_fifo_size()
        << "\nevent: " << obj.event()
-       << "\nfilter_coefficient: " << static_cast<int>(obj.filter_coefficient);
+       << "\niir_filter: 0x" << std::hex << static_cast<int>(obj.get_iir_filter()) << std::dec;
     auto status = obj.get_status();
     os << "\nstatus: [" << (status ? status : obj.get_error()) << "]";
     unsigned char temperature_flag,pressure_flag;

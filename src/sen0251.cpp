@@ -29,7 +29,7 @@ enum {
   event = 0x10,
   fifo_ready = 0x12,
   fifo_size = 0x13,
-  config = 0x1F,
+  iir_filter = 0x1F,
   odr = 0x1D,
   oversampling = 0x1C,
   pwr_ctrl = 0x1B,
@@ -61,6 +61,16 @@ const char* to_string(int flag) {
 
   return p;
 }
+}
+
+namespace Bit {
+union Iir_Filter {
+  struct {
+    uint8_t reserved : 1;
+    uint8_t filter : 3;
+  } bit;
+  uint8_t data;
+};
 }
 
 std::string PowerControl::to_string(int flag) {
@@ -107,7 +117,7 @@ Sen0251::Sen0251(unsigned dev, unsigned address) {
 
   soft_reset();
 
-  set_filter_coefficient();
+  set_iir_filter(IirFilter::coef_0);
   set_calibration_data();
 
   MSG_EXIT();
@@ -312,46 +322,6 @@ bool Sen0251::event() const {
   return rc;
 }
 
-void Sen0251::set_filter_coefficient() {
-  MSG_ENTER();
-
-  auto rc = i2c_smbus_read_byte_data(file, Register::config);
-  if (rc < 0) {
-    MSG_WARN("fail to read: %d, %s", rc, get_error());
-  }
-
-  switch (rc) {
-  case 0x00:
-    rc = 1;
-    break;
-  case 0x01:
-    rc = 1;
-    break;
-  case 0x02:
-    rc = 3;
-    break;
-  case 0x03:
-    rc = 7;
-    break;
-  case 0x04:
-    rc = 15;
-    break;
-  case 0x05:
-    rc = 31;
-    break;
-  case 0x06:
-    rc = 63;
-    break;
-  case 0x07:
-    rc = 127;
-    break;
-  }
-
-  filter_coefficient = rc;
-
-  MSG_EXIT();
-}
-
 void Sen0251::set_calibration_data() {
   MSG_ENTER();
 
@@ -493,4 +463,36 @@ void Sen0251::soft_reset() {
   }
 
   MSG_EXIT();
+}
+
+void Sen0251::set_iir_filter(IirFilter::iir_filter_t filter) {
+  MSG_ENTER();
+
+  Bit::Iir_Filter bits {0};
+  bits.bit.filter = filter;
+
+  MSG_DEBUG("iir_filter %d", bits.data);
+
+  auto rc = i2c_smbus_write_byte_data(file, Register::iir_filter, bits.data);
+  if (rc < 0) {
+    MSG_WARN("fail to read: %d, %s", rc, get_error());
+  }
+
+  MSG_EXIT();
+}
+
+unsigned char Sen0251::get_iir_filter() const {
+  MSG_ENTER();
+
+  auto rc = i2c_smbus_read_byte_data(file, Register::iir_filter);
+  if (rc < 0) {
+    MSG_WARN("fail to read: %d, %s", rc, get_error());
+  }
+
+  Bit::Iir_Filter bits {0};
+  bits.bit.filter = rc;
+
+  MSG_EXIT();
+
+  return bits.data;
 }

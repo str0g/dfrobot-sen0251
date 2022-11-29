@@ -79,6 +79,8 @@ void on() {
 
 void off() {
   Sen0251 dev(get_device_index());
+  dev.power_control();
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
   dev.power_control(PowerControl::off);
 }
 
