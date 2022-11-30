@@ -76,6 +76,13 @@ union Iir_Filter {
   } bit;
   uint8_t data;
 };
+
+union Int24 {
+  struct {
+    uint8_t int24[3];
+  } bit;// __attribute__ ((__packed__));
+  int data;
+};
 }
 
 std::string PowerControl::to_string(int flag) {
@@ -175,13 +182,16 @@ const char* Sen0251::get_status() const {
 void Sen0251::get_temperature(Readings& obj) const {
   MSG_ENTER();
 
-  auto p1 = i2c_smbus_read_byte_data(file, Register::temperature);//7-0
-  auto p2 = i2c_smbus_read_byte_data(file, Register::temperature+1);//15-8
-  auto p3 = i2c_smbus_read_byte_data(file, Register::temperature+2);//24-15
-  auto reading = to_24bit(p3, p2, p1);
-  MSG_DEBUG("t1: %d t2: %d t3: %d, reading: %f", p1, p2, p3, reading);
+  Bit::Int24 reading {0};
+  auto rc = i2c_smbus_read_i2c_block_data(file, Register::temperature,
+                                          sizeof(reading.bit.int24), &reading.bit.int24[0]);
+  if (rc < 0 or rc != sizeof(reading.bit.int24)) {
+    MSG_WARN("fail to read: %d, %s", rc, get_error());
+  }
+  reading.data = le32toh(reading.data);
+  MSG_DEBUG("t1: %d t2: %d t3: %d, reading: %d", reading.bit.int24[0], reading.bit.int24[1], reading.bit.int24[2], reading.data);
 
-  auto temp_part1 = reading - temperature_calibration[0];
+  auto temp_part1 = static_cast<float>(reading.data) - temperature_calibration[0];
   auto temp_part2 = temp_part1 * temperature_calibration[1];
 
   obj.temperature = temp_part2 + (temp_part1 * temp_part1) * temperature_calibration[2];
@@ -193,12 +203,16 @@ void Sen0251::get_temperature(Readings& obj) const {
 void Sen0251::get_pressure(Readings& obj) const {
   MSG_ENTER();
 
-  auto p1 = i2c_smbus_read_byte_data(file, Register::pressure);//7-0
-  auto p2 = i2c_smbus_read_byte_data(file, Register::pressure+1);//15-8
-  auto p3 = i2c_smbus_read_byte_data(file, Register::pressure+2);//24-15
+  Bit::Int24 reading {0};
+  auto rc = i2c_smbus_read_i2c_block_data(file, Register::pressure,
+                                          sizeof(reading.bit.int24), &reading.bit.int24[0]);
+  if (rc < 0 or rc != sizeof(reading.bit.int24)) {
+    MSG_WARN("fail to read: %d, %s", rc, get_error());
+  }
+  reading.data = le32toh(reading.data);
+  auto pressure = static_cast<float>(reading.data);
 
-  auto reading = to_24bit(p1, p2, p3);
-  MSG_DEBUG("p1: %d p2: %d p3: %d, reading: %f", p1, p2, p3, reading);
+  MSG_DEBUG("p1: %d p2: %d p3: %d, reading: %d", reading.bit.int24[0], reading.bit.int24[1], reading.bit.int24[2], reading.data);
 
   auto temperature_compensation = obj.temperature;
 
@@ -215,27 +229,27 @@ void Sen0251::get_pressure(Readings& obj) const {
     auto part1 = pressure_calibration[1] * temperature_compensation;
     auto part2 = pressure_calibration[2] * (temperature_compensation * temperature_compensation);
     auto part3 = pressure_calibration[3] * (temperature_compensation * temperature_compensation * temperature_compensation);
-    partial_out_2 = (pressure_calibration[0] + part1 + part2 + part3) * reading;
+    partial_out_2 = (pressure_calibration[0] + part1 + part2 + part3) * pressure;
   }
 
   float partial_out_3;
   {
-    auto part1 = reading * reading;
+    auto part1 = pressure * pressure;
     auto part2 = pressure_calibration[8] + pressure_calibration[9] * temperature_compensation;
     auto part3 = part1 * part2;
-    partial_out_3 = part3 + (part1 * reading) * pressure_calibration[10];
+    partial_out_3 = part3 + (part1 * pressure) * pressure_calibration[10];
   }
 
-  obj.pressure = partial_out_1 + partial_out_2 + partial_out_3;
+  obj.pressure = (partial_out_1 + partial_out_2 + partial_out_3) * 0.01f;
 
-  MSG_DEBUG("pp1: %d pp2: %d pp3: %d, press: %f", p1, p2, p3, obj.pressure);
+  MSG_DEBUG("pp1: %d pp2: %d pp3: %d, press: %f", partial_out_1, partial_out_2, partial_out_3, obj.pressure);
 
   MSG_EXIT();
 }
 
 void Sen0251::get_altitude(Readings& obj) const {
-  constexpr double sea_level_pressure = 1013.23f;
-  obj.altitude = ((float)powf(sea_level_pressure / obj.pressure, 0.190223f) - 1.0f) * (obj.temperature + 273.15f) / 0.0065f;
+  constexpr float sea_level_pressure = 1013.23f;
+  obj.altitude = static_cast<float>(powf(sea_level_pressure / obj.pressure, 0.190223f) - 1.0f) * (obj.temperature + 273.15f) / 0.0065f;
 }
 
 Sen0251::Readings Sen0251::get_readings() const {
