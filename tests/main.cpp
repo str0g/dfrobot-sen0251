@@ -104,11 +104,6 @@ void misc(Sen0251& dev) {
 }
 
 int main(int argc, char **argv) {
-  if (argv[1] == std::string("help")) {
-    _help();
-    return 0;
-  }
-
   actions["help"] = {"print help", help};
   actions["list"] = {"list device indexes", list_devices};
   actions["sensors"] = {"get readings", sensors};
@@ -119,6 +114,17 @@ int main(int argc, char **argv) {
   actions["misc"] = {"misc", misc};
 
   set_stdo_writer();
+
+  if (argc == 1 or argv[1] == std::string("help")) {
+    _help();
+    return 0;
+  }
+
+  if (argv[1] == std::string("list")) {
+    Sen0251 *empty = nullptr;
+    list_devices(*empty);
+    return 0;
+  }
 
   Sen0251 dev(get_device_index());
 
