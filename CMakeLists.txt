@@ -8,9 +8,12 @@ project(dfrobot-sen0251 VERSION 0.1 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+
 option(WITH_SEN0251_TESTS "Enable unit tests" ON)
 if(WITH_SEN0251_TESTS)
     enable_testing()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DWITH_SEN0251_TESTS")
 endif()
 
 set(WITH_TESTS OFF)
@@ -27,5 +30,7 @@ if(WITH_SEN0251_TESTS)
         set_target_properties(main PROPERTIES LINK_FLAGS "-li2c" LINK_PUBLIC ${PROJECT_NAME})
         target_link_libraries(main LINK_PUBLIC ${PROJECT_NAME})
         include(cmake/custom_tests)
-        #        custom_tests(todo)
+        #
+        custom_test(test_altitude)
+        custom_test(test_temperature)
 endif()

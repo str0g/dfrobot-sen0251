@@ -80,7 +80,7 @@ union Iir_Filter {
 union Int24 {
   struct {
     uint8_t int24[3];
-  } bit;// __attribute__ ((__packed__));
+  } bit;
   int data;
 };
 }
@@ -100,7 +100,7 @@ std::string PowerControl::to_string(int flag) {
   return rc;
 }
 
-Sen0251::Sen0251(unsigned dev, unsigned address) {
+Sen0251::Sen0251(unsigned dev, unsigned address) : sea_level_pressure(::sea_level_pressure) {
   MSG_ENTER();
 
   char filename[255];
@@ -179,7 +179,7 @@ const char* Sen0251::get_status() const {
   return ret;
 }
 
-void Sen0251::get_temperature(Readings& obj) const {
+float Sen0251::_read_temperature_register() const {
   MSG_ENTER();
 
   Bit::Int24 reading {0};
@@ -191,16 +191,23 @@ void Sen0251::get_temperature(Readings& obj) const {
   reading.data = le32toh(reading.data);
   MSG_DEBUG("t1: %d t2: %d t3: %d, reading: %d", reading.bit.int24[0], reading.bit.int24[1], reading.bit.int24[2], reading.data);
 
-  auto temp_part1 = static_cast<float>(reading.data) - temperature_calibration[0];
+  MSG_EXIT();
+  return static_cast<float>(reading.data);
+}
+
+void Sen0251::set_temperature(Readings& obj, float temperature) const {
+  MSG_ENTER();
+
+  auto temp_part1 = temperature - temperature_calibration[0];
   auto temp_part2 = temp_part1 * temperature_calibration[1];
 
   obj.temperature = temp_part2 + (temp_part1 * temp_part1) * temperature_calibration[2];
-  MSG_DEBUG("tp1: %f tp2: %f temp: %f", temp_part1, temp_part2, obj.temperature);
+  MSG_DEBUG("tp1: %f tp2: %f sensor: %f temp: %f", temp_part1, temp_part2, temperature, obj.temperature);
 
   MSG_EXIT();
 }
 
-void Sen0251::get_pressure(Readings& obj) const {
+float Sen0251::_read_pressure_register() const {
   MSG_ENTER();
 
   Bit::Int24 reading {0};
@@ -210,9 +217,15 @@ void Sen0251::get_pressure(Readings& obj) const {
     MSG_WARN("fail to read: %d, %s", rc, get_error());
   }
   reading.data = le32toh(reading.data);
-  auto pressure = static_cast<float>(reading.data);
 
   MSG_DEBUG("p1: %d p2: %d p3: %d, reading: %d", reading.bit.int24[0], reading.bit.int24[1], reading.bit.int24[2], reading.data);
+
+  MSG_EXIT();
+  return static_cast<float>(reading.data);
+}
+
+void Sen0251::set_pressure(Readings& obj, float pressure) const {
+  MSG_ENTER();
 
   auto temperature_compensation = obj.temperature;
 
@@ -240,16 +253,27 @@ void Sen0251::get_pressure(Readings& obj) const {
     partial_out_3 = part3 + (part1 * pressure) * pressure_calibration[10];
   }
 
-  obj.pressure = (partial_out_1 + partial_out_2 + partial_out_3) * 0.01f;
+  obj.pressure = (partial_out_1 + partial_out_2 + partial_out_3) * 0.01f; // to millibars
 
   MSG_DEBUG("pp1: %d pp2: %d pp3: %d, press: %f", partial_out_1, partial_out_2, partial_out_3, obj.pressure);
 
   MSG_EXIT();
 }
 
-void Sen0251::get_altitude(Readings& obj) const {
-  constexpr float sea_level_pressure = 1013.23f;
-  obj.altitude = static_cast<float>(powf(sea_level_pressure / obj.pressure, 0.190223f) - 1.0f) * (obj.temperature + 273.15f) / 0.0065f;
+void Sen0251::set_altitude(Readings& obj) const {
+  MSG_ENTER();
+
+  /// https://www.mide.com/air-pressure-at-altitude-calculator
+  constexpr float molar_mass = 0.0289644f;
+  constexpr float universal_gas_constant = 8.31432f;
+  constexpr float std_temperature_lapse_rate = -0.0065f;
+  constexpr float gravitation = 9.80665f;
+  constexpr float earth_const = (universal_gas_constant * std_temperature_lapse_rate * -1.0f) / (gravitation * molar_mass);
+  constexpr float kelvin = 273.15;
+
+  obj.altitude = ((obj.temperature + kelvin) / std_temperature_lapse_rate) * (powf((obj.pressure / sea_level_pressure), earth_const) - 1.0f);
+
+  MSG_EXIT();
 }
 
 Sen0251::Readings Sen0251::get_readings() const {
@@ -257,9 +281,9 @@ Sen0251::Readings Sen0251::get_readings() const {
 
   Readings obj;
 
-  get_temperature(obj);
-  get_pressure(obj);
-  get_altitude(obj);
+  set_temperature(obj, _read_temperature_register());
+  set_pressure(obj, _read_pressure_register());
+  set_altitude(obj);
 
   MSG_EXIT();
 
@@ -350,7 +374,7 @@ void Sen0251::set_calibration_data() {
   MSG_EXIT();
 }
 
-void Sen0251::_set_data_to_calibration(float& out, double coefficient, unsigned char address1, unsigned char address2, bool sign, double limiter) {
+void Sen0251::_read_calibration_register(float& out, double coefficient, unsigned char address1, unsigned char address2, bool sign, double limiter) {
   auto nvm = i2c_smbus_read_byte_data(file, address1);
   if (nvm < 0) {
     MSG_WARN("fail to read: %d, %s 0x%x", nvm, get_error(), address1);
@@ -360,8 +384,10 @@ void Sen0251::_set_data_to_calibration(float& out, double coefficient, unsigned 
     if (nvm2 < 0) {
       MSG_WARN("fail to read: %d, %s 0x%x", nvm2, get_error(), address2);
     }
-    nvm = (sign ? static_cast<int16_t>((nvm2 << 8) | nvm) : static_cast<uint16_t>((nvm2 << 8) | nvm));
+    auto tmp = le32toh((nvm2 << 8) | nvm);
+    nvm = (sign ? static_cast<int16_t>(tmp) : static_cast<uint16_t>(tmp));
   }
+  MSG_DEBUG("nvm: %d, 0x%x", address1);
   out = ((static_cast<double >(nvm) - limiter) / coefficient);
 }
 
@@ -369,77 +395,96 @@ void Sen0251::set_temperature_calibration() {
   MSG_ENTER();
   {
     constexpr double res = 1L<<48;
-    _set_data_to_calibration(temperature_calibration[2], res, 0x35);
+    _read_calibration_register(temperature_calibration[2], res, 0x35);
   }
   {
     constexpr double res = 1<<30;
-    _set_data_to_calibration(temperature_calibration[1], res, 0x33, 0x34);
+    _read_calibration_register(temperature_calibration[1], res, 0x33, 0x34);
   }
   {
     constexpr auto res{0.00390625}; // 2^-8
-    _set_data_to_calibration(temperature_calibration[0], res, 0x31, 0x32);
+    _read_calibration_register(temperature_calibration[0], res, 0x31, 0x32);
   }
 
   MSG_EXIT();
 }
 
+template <typename T>
+void nvm_operation(float& out, double coefficient, T nvm, double limiter=0) {
+  MSG_DEBUG("new nvm: %d", nvm);
+  out = ((static_cast<double >(nvm) - limiter) / coefficient);
+}
+
 void Sen0251::set_pressure_calibration() {
   MSG_ENTER();
+  int i = sizeof(pressure_calibration)/sizeof(pressure_calibration[0])-1;
   {
     double res = powf(2, 65);
-    _set_data_to_calibration(pressure_calibration[10], res, 0x45);
+    _read_calibration_register(pressure_calibration[i], res, 0x45);
   }
 
   {
+    --i;
     constexpr double res = 1L<<48;
-    _set_data_to_calibration(pressure_calibration[9], res, 0x44);
+    _read_calibration_register(pressure_calibration[9], res, 0x44);
   }
 
   {
+    --i;
     constexpr double res = 1L<<48;
-    _set_data_to_calibration(pressure_calibration[8], res, 0x42, 0x43);
+    _read_calibration_register(pressure_calibration[8], res, 0x42, 0x43);
   }
 
   {
+    --i;
     constexpr double res = 1L<<15;
-    _set_data_to_calibration(pressure_calibration[7], res, 0x41);
+    _read_calibration_register(pressure_calibration[7], res, 0x41);
   }
 
   {
+    --i;
     constexpr double res = 1L<<8;
-    _set_data_to_calibration(pressure_calibration[6], res, 0x40);
+    _read_calibration_register(pressure_calibration[6], res, 0x40);
   }
 
   {
+    --i;
     constexpr double res = 1<<6;
-    _set_data_to_calibration(pressure_calibration[5], res, 0x3E, 0x3F);
+    _read_calibration_register(pressure_calibration[5], res, 0x3E, 0x3F);
   }
 
   {
+    --i;
     constexpr double res = 0.125; //2^-3
-    _set_data_to_calibration(pressure_calibration[4], res, 0x3C, 0x3D);
+    _read_calibration_register(pressure_calibration[4], res, 0x3C, 0x3D);
   }
 
   {
+    --i;
     constexpr double res = 1L<<37;
-    _set_data_to_calibration(pressure_calibration[3], res, 0x3B);
+    _read_calibration_register(pressure_calibration[3], res, 0x3B);
   }
 
   {
+    --i;
     constexpr double res = 1L<<32;
-    _set_data_to_calibration(pressure_calibration[2], res, 0x3A);
+    _read_calibration_register(pressure_calibration[2], res, 0x3A);
   }
 
   {
+    --i;
     constexpr double res = 1<<29;
     constexpr double limiter = 1<<14;
-    _set_data_to_calibration(pressure_calibration[1], res, 0x38, 0x39, true, limiter);
+    _read_calibration_register(pressure_calibration[1], res, 0x38, 0x39, true,
+                               limiter);
   }
 
   {
+    --i;
     constexpr double res = 1<<20;
     constexpr double limiter = 1<<14;
-    _set_data_to_calibration(pressure_calibration[0], res, 0x36, 0x37, true, limiter);
+    _read_calibration_register(pressure_calibration[0], res, 0x36, 0x37, true,
+                               limiter);
   }
 
   MSG_EXIT();
@@ -484,6 +529,10 @@ void Sen0251::soft_reset() {
   MSG_EXIT();
 }
 
+void Sen0251::sea_level_pressure_adjust(float pressure) {
+  sea_level_pressure = pressure;
+}
+
 void Sen0251::set_iir_filter(IirFilter::iir_filter_t filter) {
   MSG_ENTER();
 
@@ -515,3 +564,17 @@ unsigned char Sen0251::get_iir_filter() const {
 
   return bits.data;
 }
+
+#ifdef WITH_SEN0251_TESTS
+Sen0251::Sen0251() : file(0), temperature_calibration(), pressure_calibration(), sea_level_pressure(::sea_level_pressure) {};
+
+void TestSen0251::update_altitude(Sen0251::Readings& readings) {
+  obj.set_altitude(readings);
+}
+
+void TestSen0251::update_temperature(Sen0251::Readings& readings, float temperature, float *calibration) {
+  std::memcpy(obj.temperature_calibration, calibration, sizeof(obj.temperature_calibration));
+  obj.set_temperature(readings, temperature);
+}
+
+#endif

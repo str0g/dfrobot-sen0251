@@ -55,6 +55,8 @@ enum iir_filter_t {
 };
 }
 
+constexpr float sea_level_pressure = 1013.25f; // millibars
+
 class Sen0251 {
 public:
   /**
@@ -109,7 +111,12 @@ public:
       return os;
     }
   };
+  /**
+   * Read register from devices and feeds set functions for Reading structure
+   * @return @Readings
+   */
   Readings get_readings() const;
+
   /**
    * Device needs to be activated and have sensor activated
    * low power mode should work in @force_on_a or @force_on_b mod or switch it self
@@ -128,31 +135,12 @@ public:
    */
   void set_oversampling(Oversampling::oversampling_t pressure, Oversampling::oversampling_t temperature);
 
+  void sea_level_pressure_adjust(float pressure);
+
   void soft_reset();
 
   void set_iir_filter(IirFilter::iir_filter_t);
   unsigned char get_iir_filter() const;
-
-  Sen0251(const Sen0251 &) = delete;
-  Sen0251(Sen0251 &&) = delete;
-  Sen0251 &operator=(const Sen0251 &) = delete;
-  Sen0251 &operator=(Sen0251 &&) = delete;
-
-private:
-  int file;
-  float temperature_calibration[3];
-  float pressure_calibration[11];
-
-  /**
-   * @return device coefficient filter
-   */
-  void set_calibration_data();
-  void set_temperature_calibration();
-  void set_pressure_calibration();
-  void _set_data_to_calibration(float&, double, unsigned char, unsigned char =0, bool=false, double =0);
-  void get_temperature(Readings&) const;
-  void get_pressure(Readings&) const;
-  void get_altitude(Readings&) const;
 
   friend std::ostream& operator<<(std::ostream& os, const Sen0251& obj) {
     os << "chip id: 0x" << std::hex << static_cast<int>(obj.get_chip_id()) << std::dec
@@ -177,10 +165,57 @@ private:
       os << obj.pressure_calibration[i] << " ";
     }
     os << "]\n"
-        << obj.get_readings();
+       << obj.get_readings();
 
     return os;
   }
+
+  Sen0251(const Sen0251 &) = delete;
+  Sen0251(Sen0251 &&) = delete;
+  Sen0251 &operator=(const Sen0251 &) = delete;
+  Sen0251 &operator=(Sen0251 &&) = delete;
+
+private:
+  int file;
+  float temperature_calibration[3];
+  float pressure_calibration[11];
+  float sea_level_pressure;
+
+  void set_temperature(Readings&, float temperature) const;
+  /**
+   * requires @set_temperature to be called first
+   * @param pressure
+   */
+  void set_pressure(Readings&, float pressure) const;
+  /**
+   * requires @set_pressure to be called first
+   * @param pressure
+   */
+  void set_altitude(Readings&) const;
+  /**
+   * @return device coefficient filter
+   */
+  void set_calibration_data();
+  void set_temperature_calibration();
+  void set_pressure_calibration();
+  void _read_calibration_register(float& , double, unsigned char, unsigned char =0, bool =false, double =0);
+  float _read_temperature_register() const;
+  float _read_pressure_register() const;
+
+#ifdef WITH_SEN0251_TESTS
+  Sen0251();
+
+  friend class TestSen0251;
+#endif
 };
+#ifdef WITH_SEN0251_TESTS
+class TestSen0251 {
+  public:
+    void update_altitude(Sen0251::Readings&);
+    void update_temperature(Sen0251::Readings&, float temperature, float *calibration);
+
+    Sen0251 obj;
+};
+#endif
 
 #endif
