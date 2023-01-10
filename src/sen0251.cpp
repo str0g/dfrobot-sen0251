@@ -255,7 +255,7 @@ void Sen0251::set_pressure(Readings& obj, float pressure) const {
 
   obj.pressure = (partial_out_1 + partial_out_2 + partial_out_3) * 0.01f; // to millibars
 
-  MSG_DEBUG("pp1: %d pp2: %d pp3: %d, press: %f", partial_out_1, partial_out_2, partial_out_3, obj.pressure);
+  MSG_DEBUG("pp1: %f pp2: %f pp3: %f, press: %f", partial_out_1, partial_out_2, partial_out_3, obj.pressure);
 
   MSG_EXIT();
 }
@@ -387,7 +387,7 @@ void Sen0251::_read_calibration_register(float& out, double coefficient, unsigne
     auto tmp = le32toh((nvm2 << 8) | nvm);
     nvm = (sign ? static_cast<int16_t>(tmp) : static_cast<uint16_t>(tmp));
   }
-  MSG_DEBUG("nvm: %d, 0x%x", address1);
+  MSG_DEBUG("nvm: %d, 0x%x", nvm, address1);
   out = ((static_cast<double >(nvm) - limiter) / coefficient);
 }
 
@@ -409,12 +409,6 @@ void Sen0251::set_temperature_calibration() {
   MSG_EXIT();
 }
 
-template <typename T>
-void nvm_operation(float& out, double coefficient, T nvm, double limiter=0) {
-  MSG_DEBUG("new nvm: %d", nvm);
-  out = ((static_cast<double >(nvm) - limiter) / coefficient);
-}
-
 void Sen0251::set_pressure_calibration() {
   MSG_ENTER();
   int i = sizeof(pressure_calibration)/sizeof(pressure_calibration[0])-1;
@@ -424,67 +418,61 @@ void Sen0251::set_pressure_calibration() {
   }
 
   {
-    --i;
     constexpr double res = 1L<<48;
-    _read_calibration_register(pressure_calibration[9], res, 0x44);
+    _read_calibration_register(pressure_calibration[--i], res, 0x44);
   }
 
   {
-    --i;
     constexpr double res = 1L<<48;
-    _read_calibration_register(pressure_calibration[8], res, 0x42, 0x43);
+    _read_calibration_register(pressure_calibration[--i], res, 0x42, 0x43);
   }
 
   {
-    --i;
     constexpr double res = 1L<<15;
-    _read_calibration_register(pressure_calibration[7], res, 0x41);
+    _read_calibration_register(pressure_calibration[--i], res, 0x41);
   }
 
   {
-    --i;
     constexpr double res = 1L<<8;
-    _read_calibration_register(pressure_calibration[6], res, 0x40);
+    _read_calibration_register(pressure_calibration[--i], res, 0x40);
   }
 
   {
-    --i;
     constexpr double res = 1<<6;
-    _read_calibration_register(pressure_calibration[5], res, 0x3E, 0x3F);
+    _read_calibration_register(pressure_calibration[--i], res, 0x3E, 0x3F);
   }
 
   {
-    --i;
     constexpr double res = 0.125; //2^-3
-    _read_calibration_register(pressure_calibration[4], res, 0x3C, 0x3D);
+    _read_calibration_register(pressure_calibration[--i], res, 0x3C, 0x3D);
   }
 
   {
-    --i;
     constexpr double res = 1L<<37;
-    _read_calibration_register(pressure_calibration[3], res, 0x3B);
+    _read_calibration_register(pressure_calibration[--i], res, 0x3B);
   }
 
   {
-    --i;
     constexpr double res = 1L<<32;
-    _read_calibration_register(pressure_calibration[2], res, 0x3A);
+    _read_calibration_register(pressure_calibration[--i], res, 0x3A);
   }
 
   {
-    --i;
     constexpr double res = 1<<29;
     constexpr double limiter = 1<<14;
-    _read_calibration_register(pressure_calibration[1], res, 0x38, 0x39, true,
+    _read_calibration_register(pressure_calibration[--i], res, 0x38, 0x39, true,
                                limiter);
   }
 
   {
-    --i;
     constexpr double res = 1<<20;
     constexpr double limiter = 1<<14;
-    _read_calibration_register(pressure_calibration[0], res, 0x36, 0x37, true,
+    _read_calibration_register(pressure_calibration[--i], res, 0x36, 0x37, true,
                                limiter);
+  }
+
+  if(i != 0) {
+    throw std::out_of_range("incorrect calibration size");
   }
 
   MSG_EXIT();
