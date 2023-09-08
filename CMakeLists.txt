@@ -13,6 +13,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if (${CMAKE_BUILD_TYPE} EQUAL "Debug")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+else ()
+    add_definitions("-DNODEBUG")
 endif()
 
 if(WITH_SEN0251_TESTS)
