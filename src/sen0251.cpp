@@ -9,6 +9,7 @@
 #include <cmath>
 #include <vector>
 #include <thread>
+#include <chrono>
 
 extern "C" {
 #include <unistd.h>
@@ -23,6 +24,8 @@ extern "C" {
 #include "sen0251_exception.h"
 
 #include "../dependecies/micro-logger/includes/micro_logger.hpp"
+
+using namespace std::chrono_literals;
 
 std::vector<unsigned char> Supported_devices {0x50};
 
@@ -183,11 +186,16 @@ float Sen0251::_read_temperature_register() const {
   MSG_ENTER();
 
   Bit::Int24 reading {0};
-  auto rc = i2c_smbus_read_i2c_block_data(file, Register::temperature,
-                                          sizeof(reading.bit.int24), &reading.bit.int24[0]);
-  if (rc < 0 or rc != sizeof(reading.bit.int24)) {
-    MSG_WARN("fail to read: %d, %s", rc, get_error());
-  }
+  int cnt = 3;
+  do {
+    auto rc = i2c_smbus_read_i2c_block_data(file, Register::temperature,
+                                            sizeof(reading.bit.int24),
+                                            &reading.bit.int24[0]);
+    if (rc < 0 or rc != sizeof(reading.bit.int24)) {
+      MSG_WARN("fail to read: %d, %s", rc, get_error());
+    }
+    std::this_thread::sleep_for(10ms);
+  } while(--cnt);
   reading.data = le32toh(reading.data);
   MSG_DEBUG("t1: %d t2: %d t3: %d, reading: %d", reading.bit.int24[0], reading.bit.int24[1], reading.bit.int24[2], reading.data);
 
