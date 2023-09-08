@@ -23,7 +23,7 @@ extern "C" {
 #include "utils.h"
 #include "sen0251_exception.h"
 
-#include "../dependecies/micro-logger/includes/micro_logger.hpp"
+#include "micro_logger.hpp"
 
 using namespace std::chrono_literals;
 

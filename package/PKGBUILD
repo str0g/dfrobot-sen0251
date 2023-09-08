@@ -1,0 +1,38 @@
+# Maintainer: Łukasz Buśko <lukasz.busko@guns4hire.cc>
+
+pkgname=dfrobot-sen0251
+pkgver=0.1
+pkgrel=1
+arch=('any')
+
+depends=()
+makedepends=('git' 'cmake' 'ninja' 'pkgconf' 'micro_logger++')
+
+source=(
+  "git+https://github.com/str0g/dfrobot-sen0251.git"
+)
+sha256sums=(
+  'SKIP'
+)
+
+pkgdesc="i2c driver for dfrobot sen0251 thermometer."
+license=('MPL')
+
+build() {
+  cd dfrobot-sen0251
+  cmake . -GNinja -DCMAKE_BUILD_TYPE=Release
+  ninja
+}
+
+package() {
+  cd dfrobot-sen0251
+  install -dm755 "$pkgdir/usr/lib/"
+	install -Dm755 "libdfrobot-sen0251.so" "$pkgdir/usr/lib/"
+  install -dm755 "$pkgdir/usr/include/dfrobot-sen0251"
+  for file in $(find include -type f)
+  do
+    install -Dm644 "$file" "$pkgdir/usr/include/dfrobot-sen0251/"
+  done
+  install -dm755 "$pkgdir/usr/share/pkgconfig/"
+  install -Dm644 "package/dfrobot-sen0251.pc" "$pkgdir/usr/share/pkgconfig/"
+}

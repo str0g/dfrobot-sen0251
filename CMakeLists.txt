@@ -5,19 +5,30 @@
 cmake_minimum_required(VERSION 3.5)
 project(dfrobot-sen0251 VERSION 0.1 LANGUAGES CXX)
 
+option(WITH_SEN0251_TESTS "Enable unit tests" OFF)
+option(USE_SUBMODULE "Use dependencies from submodule" OFF)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+if (${CMAKE_BUILD_TYPE} EQUAL "Debug")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+endif()
 
-option(WITH_SEN0251_TESTS "Enable unit tests" ON)
 if(WITH_SEN0251_TESTS)
     enable_testing()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DWITH_SEN0251_TESTS")
 endif()
 
-set(WITH_TESTS OFF)
-add_subdirectory(dependecies/micro-logger)
+if(USE_SUBMODULE)
+    set(WITH_MICRO_LOGGER_TESTS OFF)
+    add_subdirectory(dependencies/micro-logger)
+    include_directories(dependencies/micro-logger/includes)
+else()
+    include(FindPkgConfig)
+    pkg_check_modules(MICRO_LOGGER REQUIRED micro_logger)
+    include_directories(${MICRO_LOGGER_INCLUDE_DIRS})
+endif()
 
 include_directories(include)
 aux_source_directory(src SRC)

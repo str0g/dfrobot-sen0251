@@ -1,3 +1,3 @@
-[submodule "dependecies/micro-logger"]
-	path = dependecies/micro-logger
-	url = https://github.com/str0g/micro-logger.git
+[submodule "dependencies/micro-logger"]
+	path = dependencies/micro-logger
+	url = https://github.com/str0g/micro-logger
