@@ -12,7 +12,7 @@
 #include <chrono>
 #include <thread>
 
-#include "../dependecies/micro-logger/includes/micro_logger.hpp"
+#include "micro_logger.hpp"
 
 #include "sen0251.h"
 #include "utils.h"

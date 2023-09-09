@@ -6,7 +6,7 @@
 
 
 #include "common.h"
-#include "../dependecies/micro-logger/includes/micro_logger.hpp"
+#include "micro_logger.hpp"
 
 void setSilentLoggerInstance() {
   static micro_logger::SilentWriter writer;
