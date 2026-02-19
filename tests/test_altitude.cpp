@@ -1,21 +1,19 @@
 /*
-* This Source Code Form is subject to the terms of the Mozilla Public
-* License, v. 2.0. If a copy of the MPL was not distributed with this
-* file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-#include <gtest/gtest.h>
 #include "../include/sen0251.h"
 #include "common.h"
+#include <gtest/gtest.h>
 
 class AltitudeTest : public ::testing::Test {
-  void SetUp() {
-    setSilentLoggerInstance();
-  }
+  void SetUp() { setSilentLoggerInstance(); }
 };
 
 TEST_F(AltitudeTest, altitude_zero) {
-  Sen0251::Readings readings { 25.0f, 1013.25f, 0 };
+  Sen0251::Readings readings{25.0f, 1013.25f, 0};
 
   TestSen0251 obj;
   obj.update_altitude(readings);
@@ -24,7 +22,7 @@ TEST_F(AltitudeTest, altitude_zero) {
 }
 
 TEST_F(AltitudeTest, altitude_negative_158) {
-  Sen0251::Readings readings { 26.0f, 995.00f, 0 };
+  Sen0251::Readings readings{26.0f, 995.00f, 0};
 
   TestSen0251 obj;
   obj.update_altitude(readings);
@@ -33,7 +31,7 @@ TEST_F(AltitudeTest, altitude_negative_158) {
 }
 
 TEST_F(AltitudeTest, altitude_negative_58) {
-  Sen0251::Readings readings { 26.0f, 1020.0f, 0 };
+  Sen0251::Readings readings{26.0f, 1020.0f, 0};
 
   TestSen0251 obj;
   obj.update_altitude(readings);
@@ -42,7 +40,7 @@ TEST_F(AltitudeTest, altitude_negative_58) {
 }
 
 TEST_F(AltitudeTest, altitude_recalibrate_sea_level_0) {
-  Sen0251::Readings readings { 27.0f, 1025.0f, 0 };
+  Sen0251::Readings readings{27.0f, 1025.0f, 0};
 
   TestSen0251 obj;
   obj.obj.sea_level_pressure_adjust(1025.0f);
@@ -52,7 +50,7 @@ TEST_F(AltitudeTest, altitude_recalibrate_sea_level_0) {
 }
 
 TEST_F(AltitudeTest, altitude_recalibrate_sea_level_158) {
-  Sen0251::Readings readings { 27.0f, 1013.0f, 0 };
+  Sen0251::Readings readings{27.0f, 1013.0f, 0};
 
   TestSen0251 obj;
   obj.obj.sea_level_pressure_adjust(1025.0f);

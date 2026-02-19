@@ -2,13 +2,13 @@
 #define SEN0251_H
 
 /*
-* This Source Code Form is subject to the terms of the Mozilla Public
-* License, v. 2.0. If a copy of the MPL was not distributed with this
-* file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-#include <string>
 #include <ostream>
+#include <string>
 
 namespace Commands {
 enum cmd_t {
@@ -29,7 +29,7 @@ enum {
   normal = force_on_a | force_on_b
 };
 std::string to_string(int flag);
-}
+} // namespace PowerControl
 
 namespace Oversampling {
 enum oversampling_t {
@@ -64,10 +64,10 @@ public:
    * @param dev
    * @param address
    */
-  explicit Sen0251(unsigned dev, unsigned address=0x77);
+  explicit Sen0251(unsigned dev, unsigned address = 0x77);
   ~Sen0251();
 
-  //read only
+  // read only
   /**
    * @return chip id
    */
@@ -75,18 +75,19 @@ public:
   /**
    * @return error or nullptr if there was no error
    */
-  const char* get_error() const;
+  const char *get_error() const;
   /**
    *
    * @return status on success or nullptr on error
    */
-  const char* get_status() const;
+  const char *get_status() const;
   /**
    *
    * @param temperature get flag @oversampling_t
    * @param pressure get flag @oversampling_t
    */
-  void get_oversampling(unsigned char& temperature, unsigned char& pressure) const;
+  void get_oversampling(unsigned char &temperature,
+                        unsigned char &pressure) const;
   /**
    * @return fifo size
    */
@@ -98,16 +99,16 @@ public:
    * @return
    */
   bool event() const;
-  //write
+  // write
   struct Readings {
     float temperature;
     float pressure;
     float altitude;
 
-    friend std::ostream& operator<<(std::ostream& os, const Readings& obj) {
-      os <<"temperature: " << obj.temperature <<"C\n"
-         <<"pressure: " << obj.pressure <<"hpa\n"
-         <<"altitude: " << obj.altitude <<"m";
+    friend std::ostream &operator<<(std::ostream &os, const Readings &obj) {
+      os << "temperature: " << obj.temperature << "C\n"
+         << "pressure: " << obj.pressure << "hpa\n"
+         << "altitude: " << obj.altitude << "m";
       return os;
     }
   };
@@ -119,11 +120,13 @@ public:
 
   /**
    * Device needs to be activated and have sensor activated
-   * low power mode should work in @force_on_a or @force_on_b mod or switch it self
-   * off after reading session in @normal mode.
+   * low power mode should work in @force_on_a or @force_on_b mod or switch it
+   * self off after reading session in @normal mode.
    * @param flag
    */
-  void power_control(unsigned char flag=(PowerControl::pressure_on | PowerControl::temperature_on | PowerControl::normal));
+  void power_control(unsigned char flag = (PowerControl::pressure_on |
+                                           PowerControl::temperature_on |
+                                           PowerControl::normal));
   /**
    * Device flushing options @cmd_t
    */
@@ -133,7 +136,8 @@ public:
    * @param pressure
    * @param temperature
    */
-  void set_oversampling(Oversampling::oversampling_t pressure, Oversampling::oversampling_t temperature);
+  void set_oversampling(Oversampling::oversampling_t pressure,
+                        Oversampling::oversampling_t temperature);
 
   void sea_level_pressure_adjust(float pressure);
 
@@ -142,30 +146,33 @@ public:
   void set_iir_filter(IirFilter::iir_filter_t);
   unsigned char get_iir_filter() const;
 
-  friend std::ostream& operator<<(std::ostream& os, const Sen0251& obj) {
-    os << "chip id: 0x" << std::hex << static_cast<int>(obj.get_chip_id()) << std::dec
-       << "\nosr:  " << PowerControl::to_string(obj.get_power())
-       << "\nfifo: " << obj.get_fifo_size()
-       << "\nevent: " << obj.event()
-       << "\niir_filter: 0x" << std::hex << static_cast<int>(obj.get_iir_filter()) << std::dec;
+  friend std::ostream &operator<<(std::ostream &os, const Sen0251 &obj) {
+    os << "chip id: 0x" << std::hex << static_cast<int>(obj.get_chip_id())
+       << std::dec << "\nosr:  " << PowerControl::to_string(obj.get_power())
+       << "\nfifo: " << obj.get_fifo_size() << "\nevent: " << obj.event()
+       << "\niir_filter: 0x" << std::hex
+       << static_cast<int>(obj.get_iir_filter()) << std::dec;
     auto status = obj.get_status();
     os << "\nstatus: [" << (status ? status : obj.get_error()) << "]";
-    unsigned char temperature_flag,pressure_flag;
+    unsigned char temperature_flag, pressure_flag;
     obj.get_oversampling(temperature_flag, pressure_flag);
     os << "\nsampling:\n"
-       << "\ttemperature: 0x" << std::hex << static_cast<int>(temperature_flag) << std::dec
-       << "\tpressure: 0x" << std::hex << static_cast<int>(pressure_flag) << std::dec
-       << "\ncalibration:\n"
+       << "\ttemperature: 0x" << std::hex << static_cast<int>(temperature_flag)
+       << std::dec << "\tpressure: 0x" << std::hex
+       << static_cast<int>(pressure_flag) << std::dec << "\ncalibration:\n"
        << "\ttemperature: [ ";
-    for(int i=0; i<sizeof(temperature_calibration)/sizeof(temperature_calibration[0]); ++i) {
+    for (int i = 0; i < sizeof(temperature_calibration) /
+                            sizeof(temperature_calibration[0]);
+         ++i) {
       os << obj.temperature_calibration[i] << " ";
     }
     os << "]\n\tpressure: [ ";
-    for(int i=0; i<sizeof(pressure_calibration)/sizeof(pressure_calibration[0]); ++i) {
+    for (int i = 0;
+         i < sizeof(pressure_calibration) / sizeof(pressure_calibration[0]);
+         ++i) {
       os << obj.pressure_calibration[i] << " ";
     }
-    os << "]\n"
-       << obj.get_readings();
+    os << "]\n" << obj.get_readings();
 
     return os;
   }
@@ -181,24 +188,25 @@ private:
   float pressure_calibration[11];
   float sea_level_pressure;
 
-  void set_temperature(Readings&, float temperature) const;
+  void set_temperature(Readings &, float temperature) const;
   /**
    * requires @set_temperature to be called first
    * @param pressure
    */
-  void set_pressure(Readings&, float pressure) const;
+  void set_pressure(Readings &, float pressure) const;
   /**
    * requires @set_pressure to be called first
    * @param pressure
    */
-  void set_altitude(Readings&) const;
+  void set_altitude(Readings &) const;
   /**
    * @return device coefficient filter
    */
   void set_calibration_data();
   void set_temperature_calibration();
   void set_pressure_calibration();
-  void _read_calibration_register(float& , double, unsigned char, unsigned char =0, bool =false, double =0);
+  void _read_calibration_register(float &, double, unsigned char,
+                                  unsigned char = 0, bool = false, double = 0);
   float _read_temperature_register() const;
   float _read_pressure_register() const;
 
@@ -210,11 +218,12 @@ private:
 };
 #ifdef WITH_SEN0251_TESTS
 class TestSen0251 {
-  public:
-    void update_altitude(Sen0251::Readings&);
-    void update_temperature(Sen0251::Readings&, float temperature, float *calibration);
+public:
+  void update_altitude(Sen0251::Readings &);
+  void update_temperature(Sen0251::Readings &, float temperature,
+                          float *calibration);
 
-    Sen0251 obj;
+  Sen0251 obj;
 };
 #endif
 

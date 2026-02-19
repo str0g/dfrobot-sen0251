@@ -1,21 +1,19 @@
 /*
-* This Source Code Form is subject to the terms of the Mozilla Public
-* License, v. 2.0. If a copy of the MPL was not distributed with this
-* file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-#include <gtest/gtest.h>
 #include "../include/sen0251.h"
 #include "common.h"
+#include <gtest/gtest.h>
 
 class TemperatureTest : public ::testing::Test {
-  void SetUp() {
-    setSilentLoggerInstance();
-  }
+  void SetUp() { setSilentLoggerInstance(); }
 };
 
 TEST_F(TemperatureTest, temperature_zero) {
-  Sen0251::Readings readings {};
+  Sen0251::Readings readings{};
   float calibration[] = {6.98598e+06, 1.74791e-05, 8.73968e-13};
   float from_sensor = 6985980.0f; // == 6.98598e+06
 
@@ -26,7 +24,7 @@ TEST_F(TemperatureTest, temperature_zero) {
 }
 
 TEST_F(TemperatureTest, temperature_25) {
-  Sen0251::Readings readings {};
+  Sen0251::Readings readings{};
   float calibration[] = {6.98598e+06, 1.74791e-05, 8.73968e-13};
   float from_sensor = 8326600.0f;
 
