@@ -210,13 +210,13 @@ private:
   float _read_temperature_register() const;
   float _read_pressure_register() const;
 
-#ifdef WITH_SEN0251_TESTS
+#ifdef DFROBOT_SEN0251_TESTS
   Sen0251();
 
   friend class TestSen0251;
 #endif
 };
-#ifdef WITH_SEN0251_TESTS
+#ifdef DFROBOT_SEN0251_TESTS
 class TestSen0251 {
 public:
   void update_altitude(Sen0251::Readings &);

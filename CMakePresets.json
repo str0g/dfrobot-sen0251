@@ -1,0 +1,38 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 23,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "Default Config",
+      "description": "Default build using system compiler",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "On"
+      },
+      "hidden": true
+    },
+    {
+      "name": "debug",
+      "description": "Build project in debug mode",
+      "inherits": "default",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DFROBOT_SEN0251_TESTS": "On",
+        "DFROBOT_SEN0251_SANITIZER": "On",
+        "DFROBOT_USE_SUBMODULES": "Off"
+      }
+    },
+    {
+      "name": "release",
+      "description": "Build project in release mode",
+      "inherits": "default"
+    }
+  ]
+}

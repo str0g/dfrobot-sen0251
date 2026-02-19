@@ -5,9 +5,4 @@
  */
 
 #include "common.h"
-#include "micro_logger.hpp"
-
-void setSilentLoggerInstance() {
-  static micro_logger::SilentWriter writer;
-  micro_logger::set_writer(writer);
-}
+#include "micro_logger/micro_logger.hpp"

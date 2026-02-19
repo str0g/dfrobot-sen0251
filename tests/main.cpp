@@ -7,23 +7,20 @@
 #include <chrono>
 #include <cstring>
 #include <iostream>
-#include <memory>
 #include <string>
 #include <thread>
 #include <unordered_map>
 
-#include "micro_logger.hpp"
+#include "micro_logger/micro_logger.hpp"
 
 #include "sen0251.h"
 #include "utils.h"
 
 const char *ENV_DEVICE_INDEX = "ENV_DEVICE_INDEX";
 
-std::shared_ptr<micro_logger::BaseWriter> writer;
-
 void set_stdo_writer() {
-  writer = std::make_shared<micro_logger::StandardOutWriter>();
-  micro_logger::set_writer(*writer);
+  static auto writer = micro_logger::StandardOutWriter();
+  micro_logger::initialize(writer);
 };
 
 int get_device_index() {

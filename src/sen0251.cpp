@@ -10,6 +10,7 @@
 #include <cstring>
 #include <thread>
 #include <vector>
+#include <micro_logger/micro_logger.hpp>
 
 extern "C" {
 #include <fcntl.h>
@@ -23,7 +24,6 @@ extern "C" {
 #include "sen0251_exception.h"
 #include "utils.h"
 
-#include "micro_logger.hpp"
 
 using namespace std::chrono_literals;
 
@@ -597,7 +597,7 @@ unsigned char Sen0251::get_iir_filter() const {
   return bits.data;
 }
 
-#ifdef WITH_SEN0251_TESTS
+#ifdef DFROBOT_SEN0251_TESTS
 Sen0251::Sen0251()
     : file(0), temperature_calibration(), pressure_calibration(),
       sea_level_pressure(::sea_level_pressure) {};

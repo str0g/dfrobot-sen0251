@@ -9,7 +9,7 @@
 #include <gtest/gtest.h>
 
 class TemperatureTest : public ::testing::Test {
-  void SetUp() { setSilentLoggerInstance(); }
+  void SetUp() { set_silent_logger_instance(); }
 };
 
 TEST_F(TemperatureTest, temperature_zero) {

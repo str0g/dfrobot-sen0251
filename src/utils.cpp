@@ -6,7 +6,7 @@
 
 #include "utils.h"
 #include <filesystem>
-#include <iostream>
+#include <micro_logger/micro_logger.hpp>
 
 std::vector<unsigned> list_i2c_devices() {
   static std::filesystem::path dev("/dev");
@@ -21,7 +21,7 @@ std::vector<unsigned> list_i2c_devices() {
         try {
           rc.push_back(std::stoi(&tmp[pos + i2c.size()]));
         } catch (const std::invalid_argument &e) {
-          std::cout << "failed to get index for: " << tmp << std::endl;
+          MSG_ERROR("failed to get index for: %s", tmp.c_str());
         }
       }
     }

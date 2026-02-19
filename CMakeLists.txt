@@ -2,41 +2,46 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/
 
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.25)
 project(
   dfrobot-sen0251
-  VERSION 0.1
+  VERSION 0.2
   LANGUAGES CXX)
 
-option(WITH_SEN0251_TESTS "Enable unit tests" OFF)
-option(USE_SUBMODULE "Use dependencies from submodule" OFF)
+# ------------------------------------------------------------
+# Detect top-level
+# ------------------------------------------------------------
+if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+  set(MICRO_LOGGER_TOP_LEVEL ON)
+else()
+  set(MICRO_LOGGER_TOP_LEVEL OFF)
+endif()
+
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
+if(MICRO_LOGGER_TOP_LEVEL)
+  option(DFROBOT_SEN0251_TESTS "Enable unit tests" OFF)
+  option(DFROBOT_USE_SUBMODULES "Use dependencies from submodule" OFF)
+  option(DFROBOT_SEN0251_SANITIZER "Enable sanitizer" OFF)
+else()
+  set(DFROBOT_SEN0251_TESTS OFF)
+  set(DFROBOT_USE_SUBMODULES OFF)
+  set(DFROBOT_SEN0251_SANITIZER OFF)
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE "Debug")
-endif()
-
-if(${CMAKE_BUILD_TYPE} MATCHES "Debug")
+if(DFROBOT_SEN0251_SANITIZER)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
-else()
-  add_definitions("-DNODEBUG")
 endif()
 
-if(WITH_SEN0251_TESTS)
-  enable_testing()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DWITH_SEN0251_TESTS")
-endif()
-
-if(USE_SUBMODULE)
-  set(WITH_MICRO_LOGGER_TESTS OFF)
+if(DFROBOT_USE_SUBMODULES)
   add_subdirectory(dependencies/micro-logger)
-  include_directories(dependencies/micro-logger/includes)
-else()
-  include(FindPkgConfig)
-  pkg_check_modules(MICRO_LOGGER REQUIRED micro_logger)
-  include_directories(${MICRO_LOGGER_INCLUDE_DIRS})
+else()  
+  find_package(micro_logger REQUIRED)
+  include_directories(${MICRO_LOGGER_INCLUDE_DIR})
 endif()
 
 include_directories(include)
@@ -46,11 +51,14 @@ add_library(${PROJECT_NAME} SHARED ${SRC})
 target_link_libraries(${PROJECT_NAME} LINK_PUBLIC micro_logger++)
 set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "-li2c")
 
-if(WITH_SEN0251_TESTS)
+if(DFROBOT_SEN0251_TESTS)
+  enable_testing()
+  target_compile_definitions(${PROJECT_NAME} PUBLIC DFROBOT_SEN0251_TESTS)
+
   add_executable(main tests/main.cpp)
   target_link_libraries(main LINK_PUBLIC ${PROJECT_NAME})
-  include(cmake/custom_tests)
+  include(cmake/custom_tests.cmake)
   #
-  custom_test(test_altitude)
-  custom_test(test_temperature)
+  custom_gtest(test_altitude)
+  custom_gtest(test_temperature)
 endif()

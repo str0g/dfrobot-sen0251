@@ -1,13 +1,10 @@
-function(custom_test test_name)
-  add_executable(${test_name} tests/${test_name}.cpp tests/common.cpp)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-  target_link_libraries(
-    ${test_name}
-    LINK_PUBLIC
-    dfrobot-sen0251
-    dfrobot-sen0251
-    -li2c
-    -lgtest
-    -lgtest_main) # ${GTEST_DEP_LIBS}) #-lc++fs
-  add_test(${test_name} ${test_name})
+include(GoogleTest)
+
+function(custom_gtest test_name)
+  add_executable(${test_name} tests/${test_name}.cpp)
+  target_link_libraries(${test_name} PRIVATE ${PROJECT_NAME} -li2c micro_logger++ -lgtest
+                                             -lgtest_main)
+  target_include_directories(${test_name}
+                             PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+  gtest_add_tests(TARGET ${test_name})
 endfunction()

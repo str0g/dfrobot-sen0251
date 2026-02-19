@@ -9,7 +9,7 @@
 #include <gtest/gtest.h>
 
 class AltitudeTest : public ::testing::Test {
-  void SetUp() { setSilentLoggerInstance(); }
+  void SetUp() { set_silent_logger_instance(); }
 };
 
 TEST_F(AltitudeTest, altitude_zero) {
