@@ -5,4 +5,3 @@
  */
 
 #include "common.h"
-#include "micro_logger/micro_logger.hpp"

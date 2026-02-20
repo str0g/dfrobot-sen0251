@@ -10,6 +10,7 @@
 #include <cstring>
 #include <thread>
 #include <vector>
+//
 #include <micro_logger/micro_logger.hpp>
 
 extern "C" {
@@ -20,10 +21,9 @@ extern "C" {
 #include <unistd.h>
 }
 
-#include "sen0251.h"
-#include "sen0251_exception.h"
-#include "utils.h"
-
+#include "sen0251/sen0251.h"
+#include "sen0251/sen0251_exception.h"
+#include "sen0251/utils.h"
 
 using namespace std::chrono_literals;
 

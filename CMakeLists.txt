@@ -44,21 +44,9 @@ else()
   include_directories(${MICRO_LOGGER_INCLUDE_DIR})
 endif()
 
-include_directories(include)
-aux_source_directory(src SRC)
-
-add_library(${PROJECT_NAME} SHARED ${SRC})
-target_link_libraries(${PROJECT_NAME} LINK_PUBLIC micro_logger++)
-set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "-li2c")
-
 if(DFROBOT_SEN0251_TESTS)
   enable_testing()
-  target_compile_definitions(${PROJECT_NAME} PUBLIC DFROBOT_SEN0251_TESTS)
-
-  add_executable(main tests/main.cpp)
-  target_link_libraries(main LINK_PUBLIC ${PROJECT_NAME})
   include(cmake/custom_tests.cmake)
-  #
-  custom_gtest(test_altitude)
-  custom_gtest(test_temperature)
 endif()
+
+add_subdirectory(sen0251)

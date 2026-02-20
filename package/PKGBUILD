@@ -1,7 +1,7 @@
 # Maintainer: Łukasz Buśko <lukasz.busko@guns4hire.cc>
 
 pkgname=dfrobot-sen0251
-pkgver=0.1
+pkgver=0.2
 pkgrel=1
 arch=('any')
 
@@ -20,8 +20,7 @@ license=('MPL')
 
 build() {
   cd dfrobot-sen0251
-  cmake . -GNinja -DCMAKE_BUILD_TYPE=Release
-  ninja
+  make release
 }
 
 package() {

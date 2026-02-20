@@ -11,10 +11,10 @@
 #include <thread>
 #include <unordered_map>
 
-#include "micro_logger/micro_logger.hpp"
+#include <micro_logger/micro_logger.hpp>
 
-#include "sen0251.h"
-#include "utils.h"
+#include "sen0251/sen0251.h"
+#include "sen0251/utils.h"
 
 const char *ENV_DEVICE_INDEX = "ENV_DEVICE_INDEX";
 

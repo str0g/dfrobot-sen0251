@@ -4,9 +4,10 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-#include "../include/sen0251.h"
-#include "common.h"
 #include <gtest/gtest.h>
+//
+#include "common.h"
+#include "sen0251/sen0251.h"
 
 class AltitudeTest : public ::testing::Test {
   void SetUp() { set_silent_logger_instance(); }

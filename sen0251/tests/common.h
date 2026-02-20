@@ -7,7 +7,7 @@
 #ifndef DFROBOT_SEN0251_COMMON_H
 #define DFROBOT_SEN0251_COMMON_H
 
-#include "micro_logger/micro_logger.hpp"
+#include <micro_logger/micro_logger.hpp>
 
 inline void set_silent_logger_instance() {
   static micro_logger::SilentWriter writer;

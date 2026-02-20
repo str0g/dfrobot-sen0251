@@ -4,7 +4,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-#include "sen0251_exception.h"
+#include "sen0251/sen0251_exception.h"
 
 const std::string splitter{"::"};
 

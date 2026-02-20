@@ -4,9 +4,11 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-#include "utils.h"
 #include <filesystem>
+//
 #include <micro_logger/micro_logger.hpp>
+//
+#include "sen0251/utils.h"
 
 std::vector<unsigned> list_i2c_devices() {
   static std::filesystem::path dev("/dev");
